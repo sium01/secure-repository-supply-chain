@@ -1,4 +1,4 @@
-name: Step 4 # Add Dependabot version updates
+name: Step 4 - Add Dependabot Version Updates
 
 on:
   push:
@@ -20,40 +20,33 @@ env:
 jobs:
   find_exercise:
     name: Find Exercise Issue
+    if: github.run_number != 1
     uses: skills/exercise-toolkit/.github/workflows/find-exercise-issue.yml@v0.3.0
-    if: |
-      github.run_number != 1
 
   check_step_work:
-    name: Check step work
+    name: Validate Dependabot Configuration
     needs: find_exercise
     runs-on: ubuntu-latest
-    if: |
-      !github.event.repository.is_template
+    if: "!github.event.repository.is_template"
     env:
       ISSUE_URL: ${{ needs.find_exercise.outputs.issue-url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Get response templates
+      - name: Checkout Exercise Toolkit Templates
         uses: actions/checkout@v4
         with:
           repository: skills/exercise-toolkit
           path: exercise-toolkit
           ref: v0.3.0
 
-      # START: Check practical exercise
-
-      # Search for the comment about registration validation
-      - name: Check .github/dependabot.yml
+      - name: Validate 'nuget' Presence in Dependabot Config
         run: |
-          # File and expected phrase
           file="$DEPENDABOT_FILE"
           keyphrase="$DEPENDABOT_KEYPHRASE"
 
-          # Fail the workflow if the file content is missing
           if ! grep -q "$keyphrase" "$file"; then
             message="$keyphrase is not present in file $file. Please try again."
             gh issue comment "$ISSUE_URL" \
@@ -64,9 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # END: Check practical exercise
-
-      - name: Update comment - step finished - final review next
+      - name: Mark Step as Complete
         run: |
           gh issue comment "$ISSUE_URL" \
             --body-file exercise-toolkit/markdown-templates/step-feedback/lesson-review.md \
@@ -75,19 +66,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   post_review_content:
-    name: Post review content
+    name: Post Review Content
     needs: [find_exercise, check_step_work]
     runs-on: ubuntu-latest
-    if: |
-      !github.event.repository.is_template
+    if: "!github.event.repository.is_template"
     env:
       ISSUE_URL: ${{ needs.find_exercise.outputs.issue-url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create comment - add review content
+      - name: Add Review Feedback to Issue
         run: |
           gh issue comment "$ISSUE_URL" \
             --body-file ${{ env.REVIEW_FILE }}
@@ -102,14 +92,15 @@ jobs:
       issue-url: ${{ needs.find_exercise.outputs.issue-url }}
 
   disable_workflow:
-    name: Disable this workflow
+    name: Disable Workflow
     needs: [find_exercise, post_review_content]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Disable current workflow
-        run: gh workflow disable "${{github.workflow}}"
+
+      - name: Disable This Workflow
+        run: gh workflow disable "${{ github.workflow }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
